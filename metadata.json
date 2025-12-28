@@ -1,0 +1,5 @@
+{
+  "name": "Zakazky na ceste",
+  "description": "A real-time web application to track print orders through various stages like studio, print, and bookbinding. It features sorting, filtering, and user authentication status powered by Firebase.",
+  "requestFramePermissions": []
+}
