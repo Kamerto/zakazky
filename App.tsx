@@ -277,10 +277,30 @@ const PrintOrderTracker: React.FC<{ user: FirebaseUser, db: Firestore, onManageU
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const parsedOrders = snapshot.docs.map(doc => {
         const data = doc.data();
-        const deliveryDate = data.deliveryDate ? data.deliveryDate.split('T')[0] : '';
+        let deliveryDate = "";
+        if (data.deliveryDate) {
+          if (typeof data.deliveryDate === 'string') {
+            deliveryDate = data.deliveryDate.split('T')[0];
+          } else if (data.deliveryDate.toDate && typeof data.deliveryDate.toDate === 'function') {
+            deliveryDate = data.deliveryDate.toDate().toISOString().split('T')[0];
+          } else if (data.deliveryDate.seconds) {
+            deliveryDate = new Date(data.deliveryDate.seconds * 1000).toISOString().split('T')[0];
+          }
+        }
+
+        // --- FALLBACK MAPPING FOR CML COMPATIBILITY ---
+        const orderNumber = data.orderNumber || data.jobId || "???";
+        const clientName = data.clientName || (data.customer ? (data.customer + (data.jobName ? " / " + data.jobName : "")) : "???");
+        const currentStage = data.currentStage || data.trackingStage || "studio";
+        const printType = Array.isArray(data.printType) ? data.printType : (data.technology || []);
+
         return {
           id: doc.id,
           ...data,
+          orderNumber,
+          clientName,
+          currentStage,
+          printType,
           deliveryDate,
         } as Order;
       });
@@ -333,11 +353,21 @@ const PrintOrderTracker: React.FC<{ user: FirebaseUser, db: Firestore, onManageU
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
     const filtered = orders.filter(order => {
       if (!lowerCaseSearchTerm) return true;
+
+      const clientName = (order.clientName || "").toLowerCase();
+      const notes = (order.notes || "").toLowerCase();
+      const orderNumber = (order.orderNumber || "").toLowerCase();
+      const jobId = (String((order as any).jobId || "")).toLowerCase();
+      const customer = (String((order as any).customer || "")).toLowerCase();
+      const printType = Array.isArray(order.printType) ? order.printType : [];
+
       return (
-        order.clientName?.toLowerCase().includes(lowerCaseSearchTerm) ||
-        order.notes?.toLowerCase().includes(lowerCaseSearchTerm) ||
-        order.orderNumber?.toLowerCase().includes(lowerCaseSearchTerm) ||
-        order.printType.some(type => type.toLowerCase().includes(lowerCaseSearchTerm))
+        clientName.includes(lowerCaseSearchTerm) ||
+        notes.includes(lowerCaseSearchTerm) ||
+        orderNumber.includes(lowerCaseSearchTerm) ||
+        jobId.includes(lowerCaseSearchTerm) ||
+        customer.includes(lowerCaseSearchTerm) ||
+        printType.some((type: string) => String(type || "").toLowerCase().includes(lowerCaseSearchTerm))
       );
     });
     return applySorting(filtered);
@@ -558,7 +588,7 @@ const PrintOrderTracker: React.FC<{ user: FirebaseUser, db: Firestore, onManageU
                             </div>
                           ) : (
                             <div className="flex flex-row items-center gap-2">
-                              <span onClick={() => startEditing(order.id, "orderNumber", order.orderNumber || "")} className="text-xs font-bold font-mono bg-gray-100 text-gray-600 border border-gray-200 px-2 py-1 rounded cursor-pointer hover:bg-gray-200 hover:text-gray-900 transition flex-shrink-0">
+                              <span onClick={() => startEditing(order.id, "orderNumber", order.orderNumber || "")} className="text-sm font-bold font-mono bg-gray-100 text-gray-600 border border-gray-200 px-2 py-1 rounded cursor-pointer hover:bg-gray-200 hover:text-gray-900 transition flex-shrink-0">
                                 {order.orderNumber || "???"}
                               </span>
                               <span onClick={() => startEditing(order.id, "clientName", order.clientName)} className="cursor-pointer truncate block text-sm font-semibold hover:underline">
