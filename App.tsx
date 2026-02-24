@@ -288,15 +288,17 @@ const PrintOrderTracker: React.FC<{ user: FirebaseUser, db: Firestore, onManageU
           }
         }
 
-        // --- FALLBACK MAPPING FOR CML COMPATIBILITY ---
-        const orderNumber = data.orderNumber || data.jobId || "???";
-        const clientName = data.clientName || (data.customer ? (data.customer + (data.jobName ? " / " + data.jobName : "")) : "???");
-        const currentStage = data.currentStage || data.trackingStage || "studio";
-        const printType = Array.isArray(data.printType) ? data.printType : (data.technology || []);
+        // --- FALLBACK MAPPING FOR CML COMPATIBILITY (Safe Strings) ---
+        const orderNumber = String(data.orderNumber || data.jobId || "???");
+        const clientNameRaw = data.clientName || (data.customer ? (data.customer + (data.jobName ? " / " + data.jobName : "")) : "???");
+        const clientName = String(clientNameRaw);
+        const currentStage = String(data.currentStage || data.trackingStage || "studio") as Stage;
+        const rawPrintType = Array.isArray(data.printType) ? data.printType : (data.technology || []);
+        const printType = rawPrintType.map((t: any) => String(t || ""));
 
         return {
-          id: doc.id,
           ...data,
+          id: doc.id,
           orderNumber,
           clientName,
           currentStage,
@@ -501,7 +503,8 @@ const PrintOrderTracker: React.FC<{ user: FirebaseUser, db: Firestore, onManageU
 
   return (
     <div className="max-w-full mx-auto">
-      <header className="mb-2 pb-1 border-b border-gray-300 flex justify-end items-center px-1">
+      <header className="mb-2 pb-1 border-b border-gray-300 flex justify-between items-center px-1">
+        <div className="text-[10px] text-gray-400 font-mono">v1.0.4</div>
         <div className="flex items-center space-x-2 sm:space-x-3">
           <button onClick={onManageUsers} className="flex items-center px-2 py-0.5 bg-gray-600 text-white rounded-full hover:bg-gray-700 transition duration-150 shadow-sm font-medium text-[10px] sm:text-xs">
             <Users className="w-3 h-3 mr-1" />
