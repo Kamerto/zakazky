@@ -175,6 +175,9 @@ const LoginPage: React.FC = () => {
             {isRegistering ? 'Přihlaste se' : 'Zaregistrujte se'}
           </button>
         </p>
+        <div className="pt-4 border-t border-gray-100 flex justify-center">
+          <span className="text-[10px] text-gray-400 font-mono">v1.0.4</span>
+        </div>
       </div>
     </div>
   );
