@@ -14,7 +14,7 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
-const PUBLIC_ORDERS_COLLECTION = 'orders';
+const PUBLIC_ORDERS_COLLECTION = 'orders_sandbox';
 const INVITES_COLLECTION = 'invites';
 
 export { auth, db, PUBLIC_ORDERS_COLLECTION, INVITES_COLLECTION };

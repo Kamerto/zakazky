@@ -23,6 +23,13 @@ import {
 
 // --- Firebase Configuration ---
 import { auth, db, PUBLIC_ORDERS_COLLECTION, INVITES_COLLECTION } from './firebase';
+import { MOCK_ORDERS } from './mockData';
+
+// --- Sandbox / Mock Mode Detection ---
+console.log("Vite Mode:", import.meta.env.MODE);
+console.log("Mock Env Var:", import.meta.env.VITE_MOCK_MODE);
+const MOCK_MODE = import.meta.env.VITE_MOCK_MODE === 'true';
+console.log("Sandbox active:", MOCK_MODE);
 
 // --- CONSTANTS ---
 const DEFAULT_PRINT_TYPES_INITIAL: string[] = [];
@@ -275,6 +282,10 @@ const PrintOrderTracker: React.FC<{ user: FirebaseUser, db: Firestore, onManageU
   const [sortState, setSortState] = useState<SortState>({ column: 'deliveryDate', direction: 'asc' });
 
   useEffect(() => {
+    if (MOCK_MODE) {
+      setOrders(MOCK_ORDERS);
+      return;
+    }
     const ordersCollection = collection(db, PUBLIC_ORDERS_COLLECTION);
     const q = query(ordersCollection);
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -401,7 +412,12 @@ const PrintOrderTracker: React.FC<{ user: FirebaseUser, db: Firestore, onManageU
       createdAt: serverTimestamp(),
     };
     try {
-      await addDoc(collection(db, PUBLIC_ORDERS_COLLECTION), newOrder);
+      if (MOCK_MODE) {
+        const mockNewOrder = { ...newOrder, id: `mock-${Date.now()}`, createdAt: new Date() } as Order;
+        setOrders(prev => [mockNewOrder, ...prev]);
+      } else {
+        await addDoc(collection(db, PUBLIC_ORDERS_COLLECTION), newOrder);
+      }
       setNewOrderNumber("");
       setNewClientName("");
       setNewDeliveryDate("");
@@ -416,8 +432,12 @@ const PrintOrderTracker: React.FC<{ user: FirebaseUser, db: Firestore, onManageU
 
   const updateOrder = async (orderId: string, data: Partial<Omit<Order, 'id'>>) => {
     try {
-      const orderRef = doc(db, PUBLIC_ORDERS_COLLECTION, orderId);
-      await updateDoc(orderRef, data);
+      if (MOCK_MODE) {
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...data } : o));
+      } else {
+        const orderRef = doc(db, PUBLIC_ORDERS_COLLECTION, orderId);
+        await updateDoc(orderRef, data);
+      }
     } catch (e) {
       console.error("Error updating document: ", e);
     }
@@ -465,7 +485,11 @@ const PrintOrderTracker: React.FC<{ user: FirebaseUser, db: Firestore, onManageU
 
   const deleteOrder = async (orderId: string) => {
     try {
-      await deleteDoc(doc(db, PUBLIC_ORDERS_COLLECTION, orderId));
+      if (MOCK_MODE) {
+        setOrders(prev => prev.filter(o => o.id !== orderId));
+      } else {
+        await deleteDoc(doc(db, PUBLIC_ORDERS_COLLECTION, orderId));
+      }
     } catch (e) {
       console.error("Error deleting document: ", e);
     }
@@ -508,7 +532,7 @@ const PrintOrderTracker: React.FC<{ user: FirebaseUser, db: Firestore, onManageU
   return (
     <div className="max-w-full mx-auto">
       <header className="mb-2 pb-1 border-b border-gray-300 flex justify-between items-center px-1">
-        <div className="text-[10px] text-gray-400 font-mono">v1.0.5</div>
+        <div className="text-[10px] text-gray-400 font-mono">v1.0.6-sandbox</div>
         <div className="flex items-center space-x-2 sm:space-x-3">
           <button onClick={onManageUsers} className="flex items-center px-2 py-0.5 bg-gray-600 text-white rounded-full hover:bg-gray-700 transition duration-150 shadow-sm font-medium text-[10px] sm:text-xs">
             <Users className="w-3 h-3 mr-1" />
@@ -516,7 +540,7 @@ const PrintOrderTracker: React.FC<{ user: FirebaseUser, db: Firestore, onManageU
           </button>
           <span className="hidden sm:flex items-center text-xs text-gray-600">
             <User className="w-3 h-3 mr-1 text-blue-500" />
-            {user.email}
+            {user?.email || "Sandbox Úživatel"}
           </span>
           <button onClick={() => auth && signOut(auth)} className="flex items-center px-2 py-0.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition duration-150 shadow-sm font-medium text-[10px] sm:text-xs">
             <LogOut className="w-3 h-3 mr-1" />
@@ -657,12 +681,17 @@ const PrintOrderTracker: React.FC<{ user: FirebaseUser, db: Firestore, onManageU
 
 // --- MAIN APP COMPONENT (Auth Gate) ---
 const App: React.FC = () => {
+  console.log("Rendering App component. Mock Mode:", MOCK_MODE);
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [firebaseError, setFirebaseError] = useState('');
   const [isManagingUsers, setIsManagingUsers] = useState(false);
 
   useEffect(() => {
+    if (MOCK_MODE) {
+      setIsLoading(false);
+      return;
+    }
     if (!auth) {
       setFirebaseError("Firebase není nakonfigurován.");
       setIsLoading(false);
@@ -687,6 +716,15 @@ const App: React.FC = () => {
           <h2 className="text-xl font-bold text-red-800 mb-2">Chyba</h2>
           <p className="text-gray-700">{firebaseError}</p>
         </div>
+      </div>
+    );
+  }
+
+  if (MOCK_MODE) {
+    return (
+      <div className="min-h-screen bg-gray-100 p-2 sm:p-4 font-sans">
+        <div className="bg-yellow-50 border-b border-yellow-200 p-1 mb-2 text-center text-[10px] font-bold text-yellow-700 uppercase tracking-widest">Sandbox Mode - Reálná data nebudou ovlivněna</div>
+        <PrintOrderTracker user={null as any} db={null as any} onManageUsers={() => setIsManagingUsers(true)} />
       </div>
     );
   }
